@@ -1,5 +1,5 @@
 dbt_project:
-  target: dev
+  target: "{{ env_var('SNOWFLAKE_ENV') }}"
   outputs:
     dev:
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
