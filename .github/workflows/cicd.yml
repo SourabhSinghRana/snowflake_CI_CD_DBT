@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./dbt_project/dbt_project
+        working-directory: ./dbt_project/
 
     steps:
       - name: Checkout Code
