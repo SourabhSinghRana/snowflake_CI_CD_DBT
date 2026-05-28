@@ -16,6 +16,9 @@ env:
 jobs:
   dbt_ci:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./dbt_project/dbt_project
 
     steps:
       - name: Checkout Code
