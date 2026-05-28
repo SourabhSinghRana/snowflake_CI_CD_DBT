@@ -1,0 +1,38 @@
+name: dbt CI
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+  SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+  SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+  SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+  SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+  SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+
+jobs:
+  dbt_ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install requirements
+        run: pip install dbt-core dbt-snowflake sqlfluff  
+
+      - name: Install dbt dependencies
+        run: dbt deps
+
+      - name: Run lint check
+        run: sqlfluff lint models --dialect snowflake
+
+      - name: Run dbt test
+        run: dbt test --profiles-dir ./
+
+      - name: dbt run
+        run: dbt run --profiles-dir ./
+        
