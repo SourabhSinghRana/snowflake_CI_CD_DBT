@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: medical_stage          # You can name this whatever you like
+    description: "Raw medical data loaded from GCS"
+    database: MEDICAL             # Updated to match your Snowflake DB
+    schema: RAW                   # Updated to match your Snowflake schema
+    tables:
+      - name: raw_doctors
+      - name: raw_patients
+      - name: raw_visits

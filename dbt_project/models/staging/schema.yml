@@ -1,0 +1,87 @@
+version: 2
+
+models:
+  - name: src_doctors
+    description: "Contains name of doctors and their IDs"
+    columns:
+      - name: doctor_id
+        description: "The primary key for this table"
+        data_tests:
+          - unique
+          - not_null
+      - name: doctor_name
+        description: "The name of the doctor"
+        data_tests:
+          - not_null
+      - name: specialty
+        description: "Doctor's specialty"
+        data_tests:
+          - not_null
+      - name: updated_at
+        description: "When this record was created"
+        data_tests:
+          - not_null
+
+  - name: src_visits
+    description: "Fact table for patient visits and billing"
+    columns:
+      - name: visit_id
+        description: "The primary key for the visit"
+        data_tests:
+          - unique
+          - not_null
+      - name: patient_id
+        description: "Foreign key linking to patients"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('src_patients')
+                field: patient_id
+      - name: doctor_id
+        description: "Foreign key linking to doctors"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('src_doctors')
+                field: doctor_id
+# ... (rest of the columns)
+
+
+  - name: src_patients
+    description: "Patient dimension table holding demographic and insurance information"
+    columns:
+      - name: patient_id
+        description: "The primary key for this table"
+        data_tests:
+          - unique
+          - not_null
+          
+      - name: first_name
+        description: "Patient's first name"
+        data_tests:
+          - not_null
+          
+      - name: last_name
+        description: "Patient's last name"
+        data_tests:
+          - not_null
+          
+      - name: insurance_provider
+        description: "Patient's insurance company"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:             # <-- Add this key
+                values: ['BlueCross', 'Aetna', 'Medicare', 'Cigna', 'UnitedHealth']
+              
+      - name: city
+        description: "Patient's city of residence"
+        data_tests:
+          - not_null
+          
+      - name: updated_at
+        description: "Timestamp of last update for SCD tracking"
+        data_tests:
+          - not_null
