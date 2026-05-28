@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install requirements
-        run: pip install dbt-core dbt-snowflake sqlfluff  
+        run: pip install dbt-core dbt-snowflake sqlfluff sqlfluff-templater-dbt
 
       - name: Install dbt dependencies
         run: dbt deps
