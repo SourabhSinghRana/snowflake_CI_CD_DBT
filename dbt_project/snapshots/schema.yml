@@ -1,0 +1,48 @@
+version: 2
+
+models:
+
+  - name: dim_patients
+    description: "SCD Type 2 patient dimension table storing historical patient information"
+    columns:
+      - name: patient_id
+        description: "Business key for the patient"
+        data_tests:
+          - not_null
+
+      - name: first_name
+        description: "Patient's first name"
+        data_tests:
+          - not_null
+
+      - name: last_name
+        description: "Patient's last name"
+        data_tests:
+          - not_null
+
+      - name: city
+        description: "Patient city"
+        data_tests:
+          - not_null
+
+      - name: insurance_provider
+        description: "Insurance provider name"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - BlueCross
+                  - Aetna
+                  - Medicare
+                  - Cigna
+                  - UnitedHealth
+
+      - name: dbt_valid_from
+        description: "Timestamp when this record version became active"
+        data_tests:
+          - not_null
+
+      - name: dbt_valid_to
+        description: "Timestamp when this record version expired"
+
