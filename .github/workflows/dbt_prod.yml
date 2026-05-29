@@ -53,6 +53,9 @@ jobs:
 
       - name: Run dbt tests
         run: dbt test --profiles-dir . --target prod
+      
+      - name: Run snapshots
+        run: dbt snapshot --profiles-dir . --target prod
 
       - name: Run dbt models
         run: dbt run --profiles-dir . --target prod
