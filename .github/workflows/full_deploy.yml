@@ -1,12 +1,13 @@
 name: Full/Init Snowflake Deployment in prod/dev env
 
 # This workflow is triggered manually from the GitHub Actions tab
-workflow_dispatch:
-  inputs:
-    target:
-      description: "dbt target (dev/prod)"
-      required: false
-      default: ""
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "dbt target (dev/prod)"
+        required: true
+        default: ""
 
 env:
   SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
