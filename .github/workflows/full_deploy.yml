@@ -28,6 +28,9 @@ jobs:
       run:
         working-directory: ./dbt_project
 
+    env:
+      DBT_TARGET: ${{ github.event.inputs.target }}
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
