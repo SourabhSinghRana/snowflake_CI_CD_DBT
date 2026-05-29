@@ -9,7 +9,6 @@ ignore_templated_areas = True
 [sqlfluff:templater:dbt]
 project_dir = .
 profiles_dir = .
-target = dev
 
 [sqlfluff:rules:capitalisation.keywords]
 capitalisation_policy = upper
