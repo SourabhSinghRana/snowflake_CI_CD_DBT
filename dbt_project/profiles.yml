@@ -1,18 +1,16 @@
 dbt_project:
-  target: prod
+  target: dev
   outputs:
     dev:
-      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
-      database: "{{ env_var('SNOWFLAKE_DATABASE')  }}"
-      schema: "${{ env_var('SNOWFLAKE_SCHEMA') }}"
-      user: "{{ env_var('SNOWFLAKE_USER') }}"
-      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
-      role: "{{ env_var('SNOWFLAKE_ROLE') }}"
+      account: HEGUZJN-HC20489
+      database: MEDICAL
+      password: sourabh1251
+      role: TRANSFORM
+      schema: DEV
       threads: 1
       type: snowflake
+      user: dbt-test-user
       warehouse: COMPUTE_WH
-      client_session_keep_alive: False
-      query_tag: github_action_query
     
     prod:
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
