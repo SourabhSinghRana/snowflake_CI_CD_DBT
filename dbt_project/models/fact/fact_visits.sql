@@ -3,7 +3,7 @@
     unique_key='visit_id'
 ) }}
 
-select
+SELECT
     v.visit_id,
     v.patient_id,
     v.doctor_id,
@@ -16,18 +16,23 @@ select
     d.doctor_name,
     d.specialty
 
-from {{ ref('src_visits') }} v
+FROM {{ ref('src_visits') }} AS v
 
-left join {{ ref('dim_patients') }} p
-    on v.patient_id = p.patient_id
-    and p.dbt_valid_to is null
+LEFT JOIN {{ ref('dim_patients') }} AS p
+    ON
+        v.patient_id = p.patient_id
+        AND p.dbt_valid_to IS null
 
-left join {{ ref('dim_doctors') }} d
-    on v.doctor_id = d.doctor_id
+LEFT JOIN {{ ref('dim_doctors') }} AS d
+    ON v.doctor_id = d.doctor_id
 
 {% if is_incremental() %}
 
-where v.visit_date >
-    (select max(visit_date) from {{ this }})
+    WHERE
+        v.visit_date
+        > (
+            SELECT MAX(f.visit_date)
+            FROM {{ this }} AS f
+        )
 
 {% endif %}
