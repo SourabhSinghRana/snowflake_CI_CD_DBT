@@ -11,7 +11,7 @@ env:
   SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
   SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
   SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-  SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+  SNOWFLAKE_SCHEMA: prod
   SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
   SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
 
@@ -41,13 +41,18 @@ jobs:
         run: dbt deps
 
       - name: Validate dbt connection
-        run: dbt debug --profiles-dir .
+        run: dbt debug --profiles-dir . --target prod
+
+      - name: Compile dbt project
+        run: dbt compile --profiles-dir . --target prod
 
       - name: Run lint check
         run: sqlfluff lint models --dialect snowflake
+        env:
+          DBT_TARGET: prod
 
       - name: Run dbt tests
-        run: dbt test --profiles-dir .
+        run: dbt test --profiles-dir . --target prod
 
       - name: Run dbt models
-        run: dbt run --profiles-dir .
+        run: dbt run --profiles-dir . --target prod
