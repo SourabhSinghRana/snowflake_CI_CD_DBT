@@ -1,8 +1,8 @@
 {{ config(materialized='table') }}
 
-select
+SELECT
     doctor_id,
     doctor_name,
     specialty
 
-from {{ ref('src_doctors') }}
+FROM {{ ref('src_doctors') }}
