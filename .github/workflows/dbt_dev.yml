@@ -43,19 +43,12 @@ jobs:
       - name: Validate dbt connection
         run: dbt debug --profiles-dir . --target dev
 
-      - name: Compile dbt project
-        run: dbt compile --profiles-dir . --target dev
-
       - name: Run lint check
         run: sqlfluff lint models --dialect snowflake
         env:
           DBT_TARGET: dev
 
-      - name: Run dbt tests
-        run: dbt test --profiles-dir . --target dev
-      
-      - name: Run snapshots
-        run: dbt snapshot --profiles-dir . --target dev
+      - name: Run dbt build
+        run: dbt build --target dev
 
-      - name: Run dbt models
-        run: dbt run --profiles-dir . --target dev
+
