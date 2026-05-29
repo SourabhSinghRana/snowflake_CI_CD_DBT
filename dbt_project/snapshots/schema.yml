@@ -1,6 +1,6 @@
 version: 2
 
-models:
+snapshots:
 
   - name: dim_patients
     description: "SCD Type 2 patient dimension table storing historical patient information"
