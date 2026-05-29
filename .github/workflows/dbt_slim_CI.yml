@@ -1,0 +1,56 @@
+name: dbt Slim CI
+
+on:
+  pull_request:
+    branches:
+      - prod
+
+jobs:
+  run-changed-models:
+    runs-on: ubuntu-latest
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+      SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+      SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+      SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+      SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+
+    steps:
+      # 1. Check out the target branch (prod) to get the baseline state
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install dbt-snowflake sqlfluff
+
+      # 2. Compile the prod code to generate the baseline manifest.json
+      - name: Generate baseline state
+        run: |
+          cd dbt_project
+          dbt deps
+          dbt compile
+          # Create a state directory outside the project and copy the manifest
+          mkdir -p ../dbt-state
+          cp target/manifest.json ../dbt-state/
+
+      # 3. Check out the current branch (with the new changes)
+      - name: Checkout current branch
+        uses: actions/checkout@v4
+        with:
+          clean: false # Important: Keep the ../dbt-state folder we just created
+
+      # 4. Run only the modified models and their downstream dependents
+      - name: Run dbt (Slim CI)
+        run: |
+          cd dbt_project
+          dbt deps
+          dbt run --select state:modified+ --state ../dbt-state
