@@ -21,7 +21,7 @@ env:
   SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
 
 jobs:
-  dbt_ci:
+  full-deploy-snowflake:
     runs-on: ubuntu-latest
 
     defaults:
