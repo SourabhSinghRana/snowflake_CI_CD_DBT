@@ -1,19 +1,14 @@
 [sqlfluff]
-# Use the Snowflake dialect
 dialect = snowflake
-# Tell SQLFluff to compile Jinja using dbt before linting
 templater = dbt
-# Set your line length (standard is usually 80 or 120)
 max_line_length = 120
-# Ignore standard dbt folders you don't want to lint
 exclude_rules = None
 runaway_limit = 10
 ignore_templated_areas = True
 
 [sqlfluff:templater:dbt]
-# Point to your dbt project and profile directory
 project_dir = .
-profiles_dir = ~/.dbt
+profiles_dir = .
 target = dev
 
 [sqlfluff:rules:capitalisation.keywords]
