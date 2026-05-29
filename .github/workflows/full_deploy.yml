@@ -5,9 +5,12 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "dbt target (dev/prod)"
+        description: "Select dbt environment."
+        type: choice
         required: true
-        default: ""
+        options:
+          - dev
+          - prod
 
 env:
   SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
