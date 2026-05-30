@@ -1,4 +1,4 @@
-name: dbt Slim CI
+name: dbt Slim CI on PR
 
 on:
   pull_request:
