@@ -48,6 +48,17 @@ jobs:
         with:
           clean: false
 
+      - name: Download dbt state from Production
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Replace this with the actual filename of your production deployment workflow
+          workflow: dbt_slim_CI_on_Push.yml 
+          branch: prod
+          name: prod-dbt-state
+          path: ./dbt-state # This creates a new folder named dbt-state and puts the manifest inside
+          search_artifacts: true
+
       - name: Validate dbt connection
         run: |
           cd dbt_project
