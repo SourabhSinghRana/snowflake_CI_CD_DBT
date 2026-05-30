@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Define your target here so it applies to all steps
-      DBT_TARGET: prod 
+      DBT_TARGET: dev 
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
