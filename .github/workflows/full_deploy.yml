@@ -62,4 +62,12 @@ jobs:
       - name: Run dbt build
         run: dbt build --target $DBT_TARGET
 
+      - name: Upload dbt state artifact
+        uses: actions/upload-artifact@v4
+        if: success() # Only save the state if the build didn't fail
+        with:
+          name: prod-dbt-state
+          # dbt always saves the manifest in the target/ folder after a run
+          path: ./dbt_project/target/manifest.json
+
 
