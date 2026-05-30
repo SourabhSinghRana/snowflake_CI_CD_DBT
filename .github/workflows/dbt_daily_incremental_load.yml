@@ -1,22 +1,21 @@
-name: dbt dev CI
+name: dbt incremental daily load
 
 on:
-  push:
-    branches:
-      - dev
   workflow_dispatch:
+  schedule:
+    # This runs at 02:00 UTC every day.
+    - cron: '0 2 * * *'
 
 env:
   SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
   SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
   SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
   SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-  SNOWFLAKE_SCHEMA: dev
   SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
   SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
 
 jobs:
-  dbt_ci:
+  dbt_daily_run:
     runs-on: ubuntu-latest
 
     defaults:
@@ -35,23 +34,10 @@ jobs:
       - name: Install requirements
         run: |
           pip install --upgrade pip
-          pip install dbt-core dbt-snowflake sqlfluff sqlfluff-templater-dbt
+          pip install dbt-core dbt-snowflake 
 
       - name: Install dbt dependencies
         run: dbt deps
 
-      - name: Validate dbt connection
-        run: dbt debug --profiles-dir . --target dev
-
-      - name: Parse dbt project
-        run: dbt parse --target dev
-
-      - name: Run lint check
-        run: sqlfluff lint models --dialect snowflake
-        env:
-          DBT_TARGET: dev
-
-      - name: Run dbt build
-        run: dbt build --target dev
-
-
+      - name: Run daily incremental load and snapshot
+        run: dbt build --select dim_patients fact_visits --target prod

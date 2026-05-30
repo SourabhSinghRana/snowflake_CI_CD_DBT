@@ -1,0 +1,71 @@
+name: dbt Slim CI on Push
+
+on:
+  push:
+    branches:
+      - prod
+
+jobs:
+  run-changed-models:
+    runs-on: ubuntu-latest
+    env:
+      # Define your target here so it applies to all steps
+      DBT_TARGET: prod 
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+      SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+      SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+      SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+      SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+
+    steps:
+      # 1. Baseline State (Prod)
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install dbt-snowflake sqlfluff
+
+      - name: Generate baseline state
+        run: |
+          cd dbt_project
+          dbt deps
+          dbt compile --target ${{ env.DBT_TARGET }}
+          mkdir -p ../dbt-state
+          cp target/manifest.json ../dbt-state/
+
+      # 2. Test the New Code (PR Branch)
+      - name: Checkout current branch
+        uses: actions/checkout@v4
+        with:
+          clean: false
+
+      - name: Validate dbt connection
+        run: |
+          cd dbt_project
+          dbt debug --profiles-dir . --target ${{ env.DBT_TARGET }}
+
+      - name: Parse dbt project
+        run: |
+          cd dbt_project
+          dbt deps
+          dbt parse --profiles-dir . --target ${{ env.DBT_TARGET }}
+
+      - name: Run lint check
+        run: |
+          cd dbt_project
+          sqlfluff lint models --dialect snowflake
+
+      # 3. Execute Modified Models
+      - name: Run dbt models (Slim CI)
+        run: |
+          cd dbt_project
+          dbt run --select state:modified+ --state ../dbt-state --profiles-dir . --target ${{ env.DBT_TARGET }}
