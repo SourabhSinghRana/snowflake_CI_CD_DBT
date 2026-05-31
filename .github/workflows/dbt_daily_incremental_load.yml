@@ -34,10 +34,19 @@ jobs:
       - name: Install requirements
         run: |
           pip install --upgrade pip
-          pip install dbt-core dbt-snowflake 
+          pip install dbt-core dbt-snowflake sqlfluff sqlfluff-templater-dbt
 
       - name: Install dbt dependencies
         run: dbt deps
 
       - name: Run daily incremental load and snapshot
         run: dbt build --select dim_patients fact_visits --target prod
+        
+      - name: Setup Snowflake CLI
+        if: always()
+        uses: snowflakedb/snowflake-cli-action@v2
+
+      - name: Log GitHub Action Orchestration
+        if: always()
+        run: |
+          snow sql -x -q "INSERT INTO MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION (GH_RUN_ID, BRANCH_NAME, WORKFLOW_NAME, COMMIT_SHA, DEPLOYMENT_STATUS, TRIGGERED_BY, TRIGGER_EVENT) VALUES ('${{ github.run_id }}', '${{ github.ref_name }}', '${{ github.workflow }}', '${{ github.sha }}', '${{ job.status }}', '${{ github.actor }}', 'DAILY_INCREMENTAL_LOAD');"
