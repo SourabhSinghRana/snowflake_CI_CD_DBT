@@ -80,5 +80,5 @@ jobs:
       - name: Log GitHub Action Orchestration
         if: always()
         run: |
-          snow sql -x -q "INSERT INTO MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION (GH_RUN_ID, BRANCH_NAME, WORKFLOW_NAME, COMMIT_SHA, DEPLOYMENT_STATUS, TRIGGERED_BY, TRIGGER_EVENT) VALUES ('${{ github.run_id }}', '${{ github.ref_name }}', '${{ github.workflow }}', '${{ github.sha }}', '${{ job.status }}', '${{ github.actor }}', '${{ github.event_name }}');"
+          snow sql -x -q "INSERT INTO MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION (GH_RUN_ID, BRANCH_NAME, WORKFLOW_NAME, COMMIT_SHA, DEPLOYMENT_STATUS, TRIGGERED_BY, TRIGGER_EVENT) VALUES ('${{ github.run_id }}', '${{ github.ref_name }}', '${{ github.workflow }}', '${{ github.sha }}', '${{ job.status }}', '${{ github.actor }}', 'FULL_DEPLOY');"
 
