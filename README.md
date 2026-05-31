@@ -1,6 +1,6 @@
 # Snowflake CI/CD with dbt & Terraform
 
-A production-grade CI/CD pipeline for data transformation on Snowflake using **dbt (Data Build Tool)**, **Terraform** for infrastructure provisioning, and **GitHub Actions** for automated deployment. The project models a **Medical domain** dataset covering doctors, patients, and visit records.
+A production-grade CI/CD pipeline for a **healthcare data platform** built on Snowflake, using **dbt** for data transformation and **Terraform** for infrastructure-as-code. GitHub Actions automates linting, testing, and deployment across `dev`, `test`, and `prod` environments — with full audit logging back into Snowflake.
 
 ---
 
@@ -11,32 +11,41 @@ A production-grade CI/CD pipeline for data transformation on Snowflake using **d
 - [Repository Structure](#repository-structure)
 - [Snowflake Setup](#snowflake-setup)
   - [Roles & Users](#roles--users)
-  - [Raw Data & Staging](#raw-data--staging)
+  - [Raw Stage & Source Tables](#raw-stage--source-tables)
   - [Audit Tables](#audit-tables)
-- [Terraform Infrastructure](#terraform-infrastructure)
 - [dbt Project](#dbt-project)
-- [CI/CD Pipeline (GitHub Actions)](#cicd-pipeline-github-actions)
+- [Terraform Infrastructure](#terraform-infrastructure)
+- [CI/CD Workflows](#cicd-workflows)
 - [Local Development](#local-development)
-- [Required GitHub Secrets](#required-github-secrets)
+- [GitHub Secrets Required](#github-secrets-required)
+- [Branch Strategy](#branch-strategy)
 
 ---
 
 ## Architecture Overview
 
 ```
-GCS Bucket (raw_doctors, raw_patients, raw_visits CSVs)
+GCS Bucket (raw_doctors, raw_patients, raw_visits)
         │
         ▼
-Snowflake External Stage (GCS Integration)
+  Snowflake RAW Schema  ──── External Stage (GCS Integration)
         │
         ▼
-MEDICAL.RAW  ──►  dbt Models  ──►  MEDICAL.DEV / MEDICAL.PROD
-                                          │
-                                          ▼
-                                  MEDICAL.AUDIT (deployment history)
-                                          ▲
-                                          │
-                               GitHub Actions CI/CD
+   dbt Transformations
+  (dev / test / prod schemas)
+        │
+        ▼
+   Audit Logging
+  (DEPLOYMENT_HISTORY_GITHUB_ACTION + DEPLOYMENT_HISTORY_DBT_MODEL)
+        │
+  GitHub Actions CI/CD
+  ┌─────────────┐    ┌──────────────────┐
+  │  PR opened  │───▶│  dbt lint + test │  (CI — runs on dev schema)
+  └─────────────┘    └──────────────────┘
+  ┌─────────────┐    ┌──────────────────┐
+  │ Merge → prod│───▶│  dbt run (prod)  │  (CD — deploys to prod schema)
+  └─────────────┘    └──────────────────┘
+                        + Terraform apply
 ```
 
 ---
@@ -45,13 +54,13 @@ MEDICAL.RAW  ──►  dbt Models  ──►  MEDICAL.DEV / MEDICAL.PROD
 
 | Tool | Purpose |
 |---|---|
-| **Snowflake** | Cloud data warehouse |
-| **dbt-snowflake** (`1.9.0`) | Data transformation & modelling |
-| **Terraform** | Snowflake infrastructure as code |
+| **Snowflake** | Cloud data warehouse (MEDICAL database) |
+| **dbt Core 1.11** | Data transformation and modeling |
+| **dbt-snowflake 1.9** | Snowflake adapter for dbt |
+| **Terraform** | Infrastructure-as-code for Snowflake provisioning |
 | **GitHub Actions** | CI/CD automation |
-| **SQLFluff** (`4.2.1`) | SQL linting & formatting |
-| **Google Cloud Storage** | External raw data stage |
-| **Python** | Runtime for dbt & linting |
+| **SQLFluff 4.2** | SQL linting with dbt-templater |
+| **Google Cloud Storage** | Raw data landing zone (external stage) |
 
 ---
 
@@ -60,13 +69,13 @@ MEDICAL.RAW  ──►  dbt Models  ──►  MEDICAL.DEV / MEDICAL.PROD
 ```
 snowflake_CI_CD_DBT/
 ├── .github/
-│   └── workflows/          # GitHub Actions CI/CD workflow definitions
-├── dbt_project/            # dbt models, tests, macros, and config
-├── terraform/              # Terraform IaC for Snowflake resource provisioning
-├── RAW_STAGE.sql           # DDL for raw tables, GCS stage, and audit tables
-├── ROLE_AND_USER.sql       # Snowflake role, user, and permission setup
-├── commands.sql            # Handy local dev commands (venv, dbt, sqlfluff)
-├── requirements.txt        # Python dependencies
+│   └── workflows/          # GitHub Actions CI/CD pipeline definitions
+├── dbt_project/            # dbt Core project (models, tests, macros)
+├── terraform/              # Terraform configs for Snowflake infrastructure
+├── RAW_STAGE.sql           # Snowflake setup: raw tables, GCS stage, audit tables
+├── ROLE_AND_USER.sql       # Snowflake RBAC: roles, users, permissions
+├── commands.sql            # Local dev commands reference (venv, dbt, SQLFluff)
+├── requirements.txt        # Python dependencies (pinned)
 └── .gitignore
 ```
 
@@ -74,87 +83,91 @@ snowflake_CI_CD_DBT/
 
 ## Snowflake Setup
 
+Run these scripts **once** using `ACCOUNTADMIN` to bootstrap the environment. They are not applied via Terraform or dbt — they are manual setup scripts.
+
 ### Roles & Users
 
-Run `ROLE_AND_USER.sql` as `ACCOUNTADMIN` to bootstrap the necessary Snowflake principals:
+**File:** `ROLE_AND_USER.sql`
 
-- **`TRANSFORM` role** — used by dbt for all data transformation work
-- **`dbt_test_user`** — service account assigned the `TRANSFORM` role; configured as `LEGACY_SERVICE` type
-- **`TERRAFORM_ROLE` / `TERRAFORM_USER`** — dedicated principal for Terraform with `CREATE DATABASE`, `CREATE WAREHOUSE`, `CREATE ROLE`, and `CREATE INTEGRATION` privileges
+Creates two service accounts:
+
+**`dbt_test_user`** — Used by dbt and GitHub Actions to run transformations:
+- Role: `TRANSFORM`
+- Warehouse: `COMPUTE_WH`
+- Permissions: Full access to `MEDICAL` database (RAW, DEV, PROD, TEST schemas) and INSERT on audit tables
+
+**`TERRAFORM_USER`** — Used by Terraform to provision Snowflake infrastructure:
+- Role: `TERRAFORM_ROLE`
+- Permissions: `CREATE DATABASE`, `CREATE WAREHOUSE`, `CREATE ROLE`, `CREATE INTEGRATION` on account
 
 ```sql
--- Quick bootstrap (run as ACCOUNTADMIN)
+-- Run as ACCOUNTADMIN
 USE ROLE ACCOUNTADMIN;
--- then execute ROLE_AND_USER.sql
+-- See ROLE_AND_USER.sql for complete setup
 ```
 
-The `MEDICAL` database is created with the following schemas:
+### Raw Stage & Source Tables
 
-| Schema | Purpose |
+**File:** `RAW_STAGE.sql`
+
+Sets up the `MEDICAL.RAW` schema with three source tables and a GCS external stage:
+
+| Table | Description |
 |---|---|
-| `RAW` | Raw ingested data from GCS |
-| `DEV` | Development environment for dbt |
-| `PROD` | Production environment for dbt |
-| `TEST` | CI/PR testing environment |
-| `AUDIT` | Deployment history and lineage tracking |
+| `raw_doctors` | Doctor ID, name, specialty, updated timestamp |
+| `raw_patients` | Patient ID, name, insurance provider, city, updated timestamp |
+| `raw_visits` | Visit ID, patient/doctor IDs, diagnosis code, billed amount |
 
----
-
-### Raw Data & Staging
-
-Run `RAW_STAGE.sql` to create the raw tables, configure the GCS external stage, and load initial data:
+Data is loaded from GCS via a storage integration and `COPY INTO` commands:
 
 ```sql
--- Raw tables
-MEDICAL.RAW.raw_doctors   -- doctor_id, doctor_name, specialty, updated_at
-MEDICAL.RAW.raw_patients  -- patient_id, first/last name, insurance_provider, city, updated_at
-MEDICAL.RAW.raw_visits    -- visit_id, patient_id, doctor_id, visit_date, diagnosis_code, billed_amount
-
--- GCS External Stage
+-- GCS integration (run once)
 CREATE OR REPLACE STORAGE INTEGRATION gcs_int
   TYPE = EXTERNAL_STAGE
   STORAGE_PROVIDER = 'GCS'
   STORAGE_ALLOWED_LOCATIONS = ('gcs://snowflake_cicd');
 
--- Load data
-COPY INTO raw_doctors FROM @medical_stage/raw_doctors/raw_doctors.csv FILE_FORMAT = (TYPE='CSV' SKIP_HEADER=1);
+-- Stage
+CREATE OR REPLACE STAGE medical_stage
+  URL='gcs://snowflake_cicd/'
+  STORAGE_INTEGRATION = gcs_int;
 ```
-
----
 
 ### Audit Tables
 
-Two audit tables track every deployment end-to-end:
+Also created in `RAW_STAGE.sql` under `MEDICAL.AUDIT`:
 
-- **`MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION`** — captures GitHub Actions run metadata (run ID, branch, commit SHA, status, trigger event)
-- **`MEDICAL.AUDIT.DEPLOYMENT_HISTORY_DBT_MODEL`** — captures per-model execution details (model name, start/end time, status), linked to the GitHub run via `GH_RUN_ID`
+| Table | Description |
+|---|---|
+| `DEPLOYMENT_HISTORY_GITHUB_ACTION` | One record per GitHub Actions run — branch, commit SHA, status, trigger event |
+| `DEPLOYMENT_HISTORY_DBT_MODEL` | One record per dbt model execution — model name, start/end time, status |
 
----
-
-## Terraform Infrastructure
-
-The `terraform/` directory provisions Snowflake resources as code. It uses the `TERRAFORM_USER` / `TERRAFORM_ROLE` created in the setup step.
-
-```bash
-cd terraform
-terraform init
-terraform plan
-terraform apply
-```
-
-> **Note:** Store sensitive values (account, username, password) in a `terraform.tfvars` file — never commit secrets to source control.
+These tables are populated automatically by the CI/CD workflows, providing full deployment observability inside Snowflake.
 
 ---
 
 ## dbt Project
 
-The `dbt_project/` directory contains the full dbt project targeting the `MEDICAL` database.
+**Directory:** `dbt_project/`
 
-**Profiles** are expected at `~/.dbt/profiles.yml`. A typical Snowflake profile looks like:
+The dbt project transforms raw medical data through layered models targeting different Snowflake schemas based on the active environment:
+
+| dbt Target | Snowflake Schema |
+|---|---|
+| `dev` | `MEDICAL.DEV` |
+| `test` | `MEDICAL.TEST` |
+| `prod` | `MEDICAL.PROD` |
+
+**Key dbt concepts used:**
+- Source definitions pointing to `MEDICAL.RAW`
+- Staged/intermediate and mart models
+- `dbt test` for data quality checks
+- SQLFluff linting with the dbt-Snowflake templater
+
+**Profiles** (stored locally at `~/.dbt/profiles.yml`, not committed):
 
 ```yaml
-medical:
-  target: dev
+dbt_project:
   outputs:
     dev:
       type: snowflake
@@ -163,87 +176,121 @@ medical:
       password: <password>
       role: TRANSFORM
       database: MEDICAL
-      warehouse: COMPUTE_WH
       schema: DEV
-      threads: 4
-```
-
-**Useful local dbt commands:**
-
-```bash
-# Run all models
-dbt run --profiles-dir ~/.dbt
-
-# Run a specific model
-dbt run --select fact_visits --profiles-dir ~/.dbt
-
-# Run dbt tests
-dbt test --profiles-dir ~/.dbt
-```
-
-**SQL linting with SQLFluff:**
-
-```bash
-# Lint all models
-sqlfluff lint models --dialect snowflake --profiles-dir ~/.dbt
-
-# Auto-fix lint issues
-sqlfluff fix models --dialect snowflake --profiles-dir ~/.dbt
+      warehouse: COMPUTE_WH
+      threads: 1
+    prod:
+      ...same, schema: PROD
 ```
 
 ---
 
-## CI/CD Pipeline (GitHub Actions)
+## Terraform Infrastructure
 
-Workflows in `.github/workflows/` automate the full test-and-deploy lifecycle:
+**Directory:** `terraform/`
 
-| Trigger | Action |
-|---|---|
-| Pull Request opened/updated | SQLFluff linting, `dbt run` against `TEST` schema, write audit records |
-| Push / merge to `prod` branch | `dbt run` against `PROD` schema, write audit records |
+Terraform provisions and manages Snowflake infrastructure declaratively, ensuring environments are reproducible and version-controlled. The `TERRAFORM_USER` service account is used for all Terraform operations.
 
-Each run logs metadata into `MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION` and per-model results into `MEDICAL.AUDIT.DEPLOYMENT_HISTORY_DBT_MODEL`.
+Typical resources managed:
+- Warehouses
+- Databases and schemas
+- Roles and grants
+- Storage integrations
+
+```bash
+cd terraform
+terraform init
+terraform plan
+terraform apply
+```
+
+---
+
+## CI/CD Workflows
+
+**Directory:** `.github/workflows/`
+
+### Continuous Integration (CI) — Pull Requests
+
+Triggered on every pull request targeting `prod`:
+
+1. Checkout code
+2. Install Python dependencies (`requirements.txt`)
+3. Configure dbt profile using GitHub Secrets
+4. Run `sqlfluff lint` on all models (`--dialect snowflake`)
+5. Run `dbt deps` and `dbt run` against the `dev` schema
+6. Run `dbt test`
+7. Log result to `MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION`
+
+If any step fails, the PR is blocked from merging.
+
+### Continuous Deployment (CD) — Merge to `prod`
+
+Triggered on push/merge to the `prod` branch:
+
+1. Run Terraform (`terraform init` + `terraform apply`) to apply any infra changes
+2. Run `dbt run --target prod` to deploy models to `MEDICAL.PROD`
+3. Log each model execution to `MEDICAL.AUDIT.DEPLOYMENT_HISTORY_DBT_MODEL`
+4. Update `MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION` with final status
 
 ---
 
 ## Local Development
 
 ```bash
-# 1. Create and activate a virtual environment
+# 1. Create and activate virtual environment
 python -m venv venv
 echo "venv/" >> .gitignore
-source venv/bin/activate        # Linux/Mac
-# or: venv\Scripts\activate     # Windows
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # macOS/Linux
 
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Create the dbt profiles directory (Windows example)
-mkdir %userprofile%\.dbt
-# Place your profiles.yml inside ~/.dbt/
+# 3. Create dbt profile directory and configure profiles.yml
+mkdir %userprofile%\.dbt       # Windows
+# mkdir ~/.dbt                 # macOS/Linux
+# Edit ~/.dbt/profiles.yml with your Snowflake credentials
 
-# 4. Verify dbt connection
-dbt debug --profiles-dir ~/.dbt
+# 4. Lint SQL models
+sqlfluff lint models --dialect snowflake --profiles-dir ~/.dbt
+
+# 5. Fix lint issues automatically
+sqlfluff fix models --dialect snowflake --profiles-dir ~/.dbt
+
+# 6. Run all dbt models
+dbt run --profiles-dir ~/.dbt
+
+# 7. Run a specific model
+dbt run --select fact_visits --profiles-dir ~/.dbt
 ```
 
 ---
 
-## Required GitHub Secrets
+## GitHub Secrets Required
 
-Add the following secrets to your GitHub repository (`Settings → Secrets and variables → Actions`):
+Configure these in **Settings → Secrets and variables → Actions**:
 
 | Secret | Description |
 |---|---|
-| `SNOWFLAKE_ACCOUNT` | Your Snowflake account identifier |
-| `SNOWFLAKE_USER` | Service account username (`dbt_test_user`) |
-| `SNOWFLAKE_PASSWORD` | Service account password |
+| `SNOWFLAKE_ACCOUNT` | Snowflake account identifier (e.g. `abc123.us-east-1`) |
+| `SNOWFLAKE_USER` | `dbt_test_user` |
+| `SNOWFLAKE_PASSWORD` | Password for `dbt_test_user` |
 | `SNOWFLAKE_ROLE` | `TRANSFORM` |
 | `SNOWFLAKE_WAREHOUSE` | `COMPUTE_WH` |
 | `SNOWFLAKE_DATABASE` | `MEDICAL` |
-| `GCS_KEY` / `GCP_CREDENTIALS` | GCP service account key for GCS stage access (if applicable) |
+| `TF_VAR_snowflake_account` | Snowflake account for Terraform |
+| `TF_VAR_snowflake_user` | `TERRAFORM_USER` |
+| `TF_VAR_snowflake_password` | Password for `TERRAFORM_USER` |
 
 ---
 
-## License
+## Branch Strategy
 
-This project is for educational and demonstration purposes.
+| Branch | Purpose |
+|---|---|
+| `prod` | Production — protected, deploys to `MEDICAL.PROD` |
+| `dev` | Active development, runs against `MEDICAL.DEV` |
+| `feature/*` | Feature branches — open PRs to trigger CI |
+
+Pull requests to `prod` must pass CI (lint + dbt tests) before merging. Merging to `prod` automatically triggers the CD pipeline.
