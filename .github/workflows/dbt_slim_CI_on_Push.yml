@@ -88,3 +88,12 @@ jobs:
           name: prod-dbt-state
           # dbt always saves the manifest in the target/ folder after a run
           path: ./dbt_project/target/manifest.json
+
+      - name: Setup Snowflake CLI
+        if: always()
+        uses: snowflakedb/snowflake-cli-action@v2
+
+      - name: Log GitHub Action Orchestration
+        if: always()
+        run: |
+          snow sql -x -q "INSERT INTO MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION (GH_RUN_ID, BRANCH_NAME, WORKFLOW_NAME, COMMIT_SHA, DEPLOYMENT_STATUS, TRIGGERED_BY, TRIGGER_EVENT) VALUES ('${{ github.run_id }}', '${{ github.ref_name }}', '${{ github.workflow }}', '${{ github.sha }}', '${{ job.status }}', '${{ github.actor }}', 'SLIM_CI_PUSH');"
