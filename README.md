@@ -1,6 +1,6 @@
 # Snowflake CI/CD with dbt & Terraform
 
-A production-grade CI/CD pipeline for a **healthcare data platform** built on Snowflake, using **dbt** for data transformation and **Terraform** for infrastructure-as-code. GitHub Actions automates linting, testing, and deployment across `dev`, `test`, and `prod` environments — with full audit logging back into Snowflake.
+A production-grade CI/CD pipeline for a **healthcare data platform** built on Snowflake, using **dbt** for data transformation and **Terraform** for infrastructure-as-code. GitHub Actions automates linting, testing, and deployment across `dev` and `prod` environments — with full audit logging back into Snowflake.
 
 ---
 
