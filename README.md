@@ -32,7 +32,7 @@ GCS Bucket (raw_doctors, raw_patients, raw_visits)
         │
         ▼
    dbt Transformations
-  (dev / test / prod schemas)
+  (dev / prod schemas)
         │
         ▼
    Audit Logging
@@ -155,7 +155,6 @@ The dbt project transforms raw medical data through layered models targeting dif
 | dbt Target | Snowflake Schema |
 |---|---|
 | `dev` | `MEDICAL.DEV` |
-| `test` | `MEDICAL.TEST` |
 | `prod` | `MEDICAL.PROD` |
 
 **Key dbt concepts used:**
@@ -219,7 +218,7 @@ Triggered on every pull request targeting `prod`:
 3. Configure dbt profile using GitHub Secrets
 4. Run `sqlfluff lint` on all models (`--dialect snowflake`)
 5. Run `dbt deps` and `dbt run` against the `dev` schema
-6. Run `dbt test`
+6. Run `dbt `
 7. Log result to `MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION`
 
 If any step fails, the PR is blocked from merging.
@@ -274,7 +273,7 @@ Configure these in **Settings → Secrets and variables → Actions**:
 | Secret | Description |
 |---|---|
 | `SNOWFLAKE_ACCOUNT` | Snowflake account identifier (e.g. `abc123.us-east-1`) |
-| `SNOWFLAKE_USER` | `dbt_test_user` |
+| `SNOWFLAKE_USER` | `dbt__user` |
 | `SNOWFLAKE_PASSWORD` | Password for `dbt_test_user` |
 | `SNOWFLAKE_ROLE` | `TRANSFORM` |
 | `SNOWFLAKE_WAREHOUSE` | `COMPUTE_WH` |
