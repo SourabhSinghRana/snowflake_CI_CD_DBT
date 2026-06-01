@@ -1,6 +1,6 @@
 # Snowflake CI/CD with dbt & Terraform
 
-A production-grade CI/CD pipeline for a **healthcare data platform** built on Snowflake, using **dbt** for data transformation and **Terraform** for infrastructure-as-code. GitHub Actions automates linting, testing, and deployment across `dev`, `test`, and `prod` environments — with full audit logging back into Snowflake.
+A production-grade CI/CD pipeline for a **healthcare data platform** built on Snowflake, using **dbt** for data transformation and **Terraform** for infrastructure-as-code. GitHub Actions automates linting, testing, and deployment across `dev` and `prod` environments — with full audit logging back into Snowflake.
 
 ---
 
@@ -32,7 +32,7 @@ GCS Bucket (raw_doctors, raw_patients, raw_visits)
         │
         ▼
    dbt Transformations
-  (dev / test / prod schemas)
+  (dev / prod schemas)
         │
         ▼
    Audit Logging
@@ -155,7 +155,6 @@ The dbt project transforms raw medical data through layered models targeting dif
 | dbt Target | Snowflake Schema |
 |---|---|
 | `dev` | `MEDICAL.DEV` |
-| `test` | `MEDICAL.TEST` |
 | `prod` | `MEDICAL.PROD` |
 
 **Key dbt concepts used:**
