@@ -1,146 +1,78 @@
--- Snowflake user creation
--- Step 1: Use an admin role
 USE ROLE ACCOUNTADMIN;
 
--- Step 2: Create the `transform` role and assign it to ACCOUNTADMIN
-CREATE ROLE IF NOT EXISTS TRANSFORM;
-GRANT ROLE TRANSFORM TO ROLE ACCOUNTADMIN;
-
--- Step 3: Create a default warehouse
+-- ==========================================
+-- 1. BASE INFRASTRUCTURE (DB & SCHEMAS)
+-- ==========================================
 CREATE WAREHOUSE IF NOT EXISTS COMPUTE_WH;
-GRANT OPERATE ON WAREHOUSE COMPUTE_WH TO ROLE TRANSFORM;
 
-
-DROP USER IF EXISTS dbt_test_user;
-
--- Step 4: Create the `dbt_test_user` user and assign to the transform role
-CREATE OR REPLACE USER dbt_test_user
-  PASSWORD='TempPassword123!'
-  LOGIN_NAME='dbt-test-user'
-  MUST_CHANGE_PASSWORD=FALSE
-  DEFAULT_WAREHOUSE='COMPUTE_WH'
-  DEFAULT_ROLE=TRANSFORM
-  --DEFAULT_NAMESPACE='MEDICAL.DEV'
-  COMMENT='dbt_test_user user used for data transformation';
-
-CREATE OR REPLACE USER dbt_test_user
-  DEFAULT_ROLE = TRANSFORM
-  DEFAULT_WAREHOUSE = 'COMPUTE_WH'
-  MUST_CHANGE_PASSWORD = FALSE;
-
-
-
-/* I use Keypair auth so here is have to set it up:
-using OpenSSL on local machine. Run this commands in the terminal
-
-This command generates a private key and encrypts it using the AES 256 algorithm, which will prompt you to enter and verify a passphrase. REMEMBER FOR THIS PASSPHRASE
-openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out snowflake_dbt_key.p8 -v2 aes-256-cbc
-
-Generates public key:
-openssl rsa -in snowflake_dbt_key.p8 -pubout -out snowflake_dbt_key.pub
-
-So end of the day we have 2 files: 
-.p8 is the private key
-.pub is the publick key
-*/
-
-ALTER USER dbt_test_user
-    SET RSA_PUBLIC_KEY = 'putyourpublichere_withouttheBEGINandENDPUBLICKEY_and_inoneline';
-
-ALTER USER dbt_test_user SET TYPE = LEGACY_SERVICE;
-GRANT ROLE TRANSFORM TO USER dbt_test_user;
-
--- Step 5: Create a database and schema for the MEDICAL project
 CREATE DATABASE IF NOT EXISTS MEDICAL;
 CREATE SCHEMA IF NOT EXISTS MEDICAL.DEV;
 CREATE SCHEMA IF NOT EXISTS MEDICAL.PROD;
 CREATE SCHEMA IF NOT EXISTS MEDICAL.TEST;
 CREATE SCHEMA IF NOT EXISTS MEDICAL.RAW;
+CREATE SCHEMA IF NOT EXISTS MEDICAL.AUDIT;
 
--- Step 6: Grant permissions to the `transform` role
-GRANT ALL ON WAREHOUSE COMPUTE_WH TO ROLE TRANSFORM;
-GRANT ALL ON DATABASE MEDICAL TO ROLE TRANSFORM;
+-- ==========================================
+-- 2. DBT TRANSFORMATION (Role & User)
+-- ==========================================
+CREATE ROLE IF NOT EXISTS TRANSFORM;
+GRANT ROLE TRANSFORM TO ROLE ACCOUNTADMIN;
+
+DROP USER IF EXISTS dbt_test_user;
+CREATE USER dbt_test_user
+    PASSWORD='TempPassword123!'
+    LOGIN_NAME='dbt-test-user'
+    MUST_CHANGE_PASSWORD=FALSE
+    DEFAULT_WAREHOUSE='COMPUTE_WH'
+    DEFAULT_ROLE=TRANSFORM
+    COMMENT='User used for dbt data transformation'
+    TYPE=LEGACY_SERVICE;
+
+-- Assign public key (Replace string with actual key)
+ALTER USER dbt_test_user SET RSA_PUBLIC_KEY = 'putyourpublichere_withouttheBEGINandENDPUBLICKEY_and_inoneline';
+
+GRANT ROLE TRANSFORM TO USER dbt_test_user;
+
+-- Grants for TRANSFORM role
+GRANT OPERATE, USAGE ON WAREHOUSE COMPUTE_WH TO ROLE TRANSFORM;
+GRANT USAGE ON DATABASE MEDICAL TO ROLE TRANSFORM;
+
 GRANT ALL ON ALL SCHEMAS IN DATABASE MEDICAL TO ROLE TRANSFORM;
 GRANT ALL ON FUTURE SCHEMAS IN DATABASE MEDICAL TO ROLE TRANSFORM;
+
 GRANT ALL ON ALL TABLES IN SCHEMA MEDICAL.DEV TO ROLE TRANSFORM;
 GRANT ALL ON FUTURE TABLES IN SCHEMA MEDICAL.DEV TO ROLE TRANSFORM;
+
 GRANT ALL ON ALL TABLES IN SCHEMA MEDICAL.RAW TO ROLE TRANSFORM;
 GRANT ALL ON FUTURE TABLES IN SCHEMA MEDICAL.RAW TO ROLE TRANSFORM;
 
-
-
-
--- 1. Grant usage on the database and schema
-GRANT USAGE ON DATABASE MEDICAL TO ROLE TRANSFORM;
-GRANT USAGE ON SCHEMA MEDICAL.AUDIT TO ROLE TRANSFORM;
-
--- 2. Grant permission to insert data into the specific table
 GRANT INSERT ON TABLE MEDICAL.AUDIT.DEPLOYMENT_HISTORY_DBT_MODEL TO ROLE TRANSFORM;
-
--- 2. Grant permission to insert data into the specific table
 GRANT INSERT ON TABLE MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION TO ROLE TRANSFORM;
 
-
-
-CREATE OR REPLACE ROLE TERRAFORM_ROLE;
-GRANT ROLE TERRAFORM_ROLE TO USER TERRAFORM_USER;
-
-CREATE OR REPLACE USER TERRAFORM_USER
-PASSWORD = 'StrongPassword'
-DEFAULT_ROLE = TERRAFORM_ROLE
-DEFAULT_WAREHOUSE = COMPUTE_WH
-MUST_CHANGE_PASSWORD = FALSE;
-
-
-GRANT CREATE DATABASE ON ACCOUNT TO ROLE TERRAFORM_ROLE;
-GRANT CREATE WAREHOUSE ON ACCOUNT TO ROLE TERRAFORM_ROLE;
-GRANT CREATE ROLE ON ACCOUNT TO ROLE TERRAFORM_ROLE;
-GRANT CREATE INTEGRATION ON ACCOUNT TO ROLE TERRAFORM_ROLE;
-GRANT USAGE ON WAREHOUSE COMPUTE_WH TO ROLE TERRAFORM_ROLE;
-
-
-
-GRANT ROLE TERRAFORM_ROLE TO USER TERRAFORM_USER;
-ALTER USER TERRAFORM_USER SET DEFAULT_ROLE = TERRAFORM_ROLE;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
--- FOR CICD
-
-
--- FOR CICD
-USE ROLE ACCOUNTADMIN;
-
--- 1. Create a custom role for CI/CD process
+-- ==========================================
+-- 3. CI/CD WORKLOADS (Role & User)
+-- ==========================================
 CREATE ROLE IF NOT EXISTS CICD_ROLE
-  COMMENT = 'CICD project: Warehouse for CICD workloads';
+    COMMENT = 'CICD project: Warehouse for CICD workloads';
 
+CREATE USER IF NOT EXISTS CICD_USER
+    DEFAULT_ROLE = CICD_ROLE
+    DEFAULT_WAREHOUSE = COMPUTE_WH
+    MUST_CHANGE_PASSWORD = FALSE;
 
--- 4. Grant privileges to the new role
+-- Assign public key (Replace string with actual key)
+ALTER USER CICD_USER SET RSA_PUBLIC_KEY = 'putyourpublichere_withouttheBEGINandENDPUBLICKEY_and_inoneline';
+
+GRANT ROLE CICD_ROLE TO USER CICD_USER;
+
+-- Grants for CICD_ROLE
 GRANT USAGE ON WAREHOUSE COMPUTE_WH TO ROLE CICD_ROLE;
 GRANT USAGE ON DATABASE MEDICAL TO ROLE CICD_ROLE;
+GRANT USAGE ON SCHEMA MEDICAL.AUDIT TO ROLE CICD_ROLE;
 GRANT CREATE SCHEMA ON DATABASE MEDICAL TO ROLE CICD_ROLE;
 
-
--- 5. FUTURE GRANTS: Apply permissions automatically to all NEW objects created in the database --
-
--- Grant comprehensive permissions on all FUTURE schemas
+-- Future Grants for CICD_ROLE
 GRANT ALL PRIVILEGES ON FUTURE SCHEMAS IN DATABASE MEDICAL TO ROLE CICD_ROLE;
-
--- Grant permissions for all types of objects that will be created within FUTURE schemas
 GRANT ALL PRIVILEGES ON FUTURE TABLES IN DATABASE MEDICAL TO ROLE CICD_ROLE;
 GRANT ALL PRIVILEGES ON FUTURE VIEWS IN DATABASE MEDICAL TO ROLE CICD_ROLE;
 GRANT ALL PRIVILEGES ON FUTURE STAGES IN DATABASE MEDICAL TO ROLE CICD_ROLE;
@@ -152,54 +84,34 @@ GRANT ALL PRIVILEGES ON FUTURE PIPES IN DATABASE MEDICAL TO ROLE CICD_ROLE;
 GRANT ALL PRIVILEGES ON FUTURE PROCEDURES IN DATABASE MEDICAL TO ROLE CICD_ROLE;
 GRANT ALL PRIVILEGES ON FUTURE FUNCTIONS IN DATABASE MEDICAL TO ROLE CICD_ROLE;
 
-
+-- Specific Schema Table Grants for CICD_ROLE
 GRANT ALL ON ALL SCHEMAS IN DATABASE MEDICAL TO ROLE CICD_ROLE;
-GRANT ALL ON FUTURE SCHEMAS IN DATABASE MEDICAL TO ROLE CICD_ROLE;
 GRANT ALL ON ALL TABLES IN SCHEMA MEDICAL.DEV TO ROLE CICD_ROLE;
 GRANT ALL ON FUTURE TABLES IN SCHEMA MEDICAL.DEV TO ROLE CICD_ROLE;
 GRANT ALL ON ALL TABLES IN SCHEMA MEDICAL.RAW TO ROLE CICD_ROLE;
 GRANT ALL ON FUTURE TABLES IN SCHEMA MEDICAL.RAW TO ROLE CICD_ROLE;
 
--- Grants for specific objects like Alerts and Streamlit Apps
+-- Object Specific Grants for CICD_ROLE
 GRANT CREATE ALERT ON ALL SCHEMAS IN DATABASE MEDICAL TO ROLE CICD_ROLE;
 GRANT CREATE STREAMLIT ON ALL SCHEMAS IN DATABASE MEDICAL TO ROLE CICD_ROLE;
-
-
--- 6. Create a user
-CREATE USER IF NOT EXISTS CICD_USER
-  DEFAULT_ROLE = CICD_ROLE
-  DEFAULT_WAREHOUSE = COMPUTE_WH
-  MUST_CHANGE_PASSWORD = FALSE;
-
--- Grant the custom role to the new user
-GRANT ROLE CICD_ROLE TO USER CICD_USER;
-
-
-/* I use Keypair auth so here is have to set it up:
-using OpenSSL on local machine. Run this commands in the terminal
-
-This command generates a private key and encrypts it using the AES 256 algorithm, which will prompt you to enter and verify a passphrase. REMEMBER FOR THIS PASSPHRASE
-openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out snowflake_cicd_key.p8 -v2 aes-256-cbc
-
-Generates public key:
-openssl rsa -in snowflake_cicd_key.p8 -pubout -out snowflake_cicd_key.pub
-
-So end of the day we have 2 files: 
-.p8 is the private key
-.pub is the publick key
-*/
-
--- Add the publick key to the user:
-ALTER USER CICD_USER
-    SET RSA_PUBLIC_KEY = 'putyourpublichere_withouttheBEGINandENDPUBLICKEY_and_inoneline';
-
-
-
--- 1. Grant usage on the database
-GRANT USAGE ON DATABASE MEDICAL TO ROLE CICD_ROLE;
-
--- 2. Grant usage on the schema
-GRANT USAGE ON SCHEMA MEDICAL.AUDIT TO ROLE CICD_ROLE;
-
--- 3. Grant insert (and select) privileges on the specific table
 GRANT INSERT, SELECT ON TABLE MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION TO ROLE CICD_ROLE;
+
+-- ==========================================
+-- 4. TERRAFORM PROVISIONING (Role & User)
+-- ==========================================
+CREATE ROLE IF NOT EXISTS TERRAFORM_ROLE;
+
+CREATE USER IF NOT EXISTS TERRAFORM_USER
+    PASSWORD = 'StrongPassword'
+    DEFAULT_ROLE = TERRAFORM_ROLE
+    DEFAULT_WAREHOUSE = COMPUTE_WH
+    MUST_CHANGE_PASSWORD = FALSE;
+
+GRANT ROLE TERRAFORM_ROLE TO USER TERRAFORM_USER;
+
+-- Grants for TERRAFORM_ROLE
+GRANT CREATE DATABASE ON ACCOUNT TO ROLE TERRAFORM_ROLE;
+GRANT CREATE WAREHOUSE ON ACCOUNT TO ROLE TERRAFORM_ROLE;
+GRANT CREATE ROLE ON ACCOUNT TO ROLE TERRAFORM_ROLE;
+GRANT CREATE INTEGRATION ON ACCOUNT TO ROLE TERRAFORM_ROLE;
+GRANT USAGE ON WAREHOUSE COMPUTE_WH TO ROLE TERRAFORM_ROLE;
