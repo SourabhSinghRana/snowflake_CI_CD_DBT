@@ -89,8 +89,8 @@ jobs:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_CICD_USER }}
           SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_CICD_ROLE }}
-          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
           SNOWFLAKE_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
+          PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
           SNOWFLAKE_AUTHENTICATOR: SNOWFLAKE_JWT
         run: |
           snow sql -x -q "INSERT INTO MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION (GH_RUN_ID, BRANCH_NAME, WORKFLOW_NAME, COMMIT_SHA, DEPLOYMENT_STATUS, TRIGGERED_BY, TRIGGER_EVENT) VALUES ('${{ github.run_id }}', '${{ github.ref_name }}', '${{ github.workflow }}', '${{ github.sha }}', '${{ job.status }}', '${{ github.actor }}', 'FULL_DEPLOY');"
