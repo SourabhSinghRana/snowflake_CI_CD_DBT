@@ -60,3 +60,32 @@ jobs:
           SNOWFLAKE_AUTHENTICATOR: SNOWFLAKE_JWT
         run: |
           snow sql -x -q "INSERT INTO MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION (GH_RUN_ID, BRANCH_NAME, WORKFLOW_NAME, COMMIT_SHA, DEPLOYMENT_STATUS, TRIGGERED_BY, TRIGGER_EVENT) VALUES ('${{ github.run_id }}', '${{ github.ref_name }}', '${{ github.workflow }}', '${{ github.sha }}', '${{ job.status }}', '${{ github.actor }}', 'DAILY_INCREMENTAL_LOAD');"
+
+      - name: Send Email Notification on Success
+        if: success() 
+        uses: dawidd6/action-send-mail@v3
+        with:
+          # Required connection details
+          server_address: smtp.gmail.com 
+          server_port: 465 
+          secure: true
+          
+          # Credentials from GitHub Secrets
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          
+          # Email Metadata
+          subject: "✅ dbt Deployment SUCCESS: ${{ github.event.inputs.target }}"
+          to: sourabh9557151166@gmail.com # Comma-separated list for multiple recipients
+          from: GitHub Actions Pipeline
+          
+          # The Email Body
+          body: |
+            The dbt deployment workflow has completed SUCCESSFULLY.
+            
+            Environment: ${{ github.event.inputs.target }}
+            Triggered by: ${{ github.actor }}
+            Branch: ${{ github.ref_name }}
+            
+            Click here to view the execution logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}          
