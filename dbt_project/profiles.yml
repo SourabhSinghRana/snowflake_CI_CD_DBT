@@ -6,7 +6,11 @@ dbt_project:
       database: "{{ env_var('SNOWFLAKE_DATABASE')  }}"
       schema: DEV
       user: "{{ env_var('SNOWFLAKE_USER') }}"
-      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      
+      # --- SWAPPED TO KEY PAIR AUTH ---
+      private_key: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_RAW') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
+      
       role: "{{ env_var('SNOWFLAKE_ROLE') }}"
       threads: 1
       type: snowflake
@@ -19,7 +23,11 @@ dbt_project:
       database: "{{ env_var('SNOWFLAKE_DATABASE')  }}"
       schema: PROD
       user: "{{ env_var('SNOWFLAKE_USER') }}"
-      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      
+      # --- SWAPPED TO KEY PAIR AUTH ---
+      private_key: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_RAW') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
+      
       role: "{{ env_var('SNOWFLAKE_ROLE') }}"
       threads: 1
       type: snowflake
