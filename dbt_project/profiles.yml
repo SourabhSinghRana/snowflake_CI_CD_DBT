@@ -5,7 +5,7 @@ dbt_project:
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
       database: "{{ env_var('SNOWFLAKE_DATABASE')  }}"
       schema: DEV
-      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      user: "{{ env_var('SNOWFLAKE_DBT_USER') }}"
       
       # --- SWAPPED TO KEY PAIR AUTH ---
       private_key: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_RAW') }}"
@@ -22,7 +22,7 @@ dbt_project:
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
       database: "{{ env_var('SNOWFLAKE_DATABASE')  }}"
       schema: PROD
-      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      user: "{{ env_var('SNOWFLAKE_DBT_USER') }}"
       
       # --- SWAPPED TO KEY PAIR AUTH ---
       private_key: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_RAW') }}"
