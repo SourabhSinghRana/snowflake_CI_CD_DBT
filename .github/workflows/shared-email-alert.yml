@@ -50,7 +50,7 @@ jobs:
           
           # Use the dynamic variables from the previous step
           subject: "${{ steps.email_setup.outputs.icon }} Pipeline ${{ steps.email_setup.outputs.status_text }}: ${{ github.repository }}"
-          to: data-team@yourcompany.com
+          to: sourabh9557151166@gmail.com
           from: GitHub Actions Central
           
           body: |
