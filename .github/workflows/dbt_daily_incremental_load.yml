@@ -89,3 +89,12 @@ jobs:
             
             Click here to view the execution logs:
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}          
+
+  notify-team:
+    needs: dbt_daily_run
+    if: always() 
+    uses: ./.github/workflows/shared-email-alert.yml
+    with:
+      job_status: ${{ needs.dbt_daily_run.result }} # Now points to the correct job result
+      target_env: 'prod' # Hardcoded to prod since there are no workflow inputs in this file
+    secrets: inherit
