@@ -12,6 +12,12 @@ terraform.tfstate.backup
 terraform.tfvars
 terraform.lock.hcl
 
+
+keys/
+.pub
+.8
+
+
 raw_csv_files/
 *.csv
 
