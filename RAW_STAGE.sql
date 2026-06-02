@@ -1,10 +1,13 @@
--- Set defaults
+-- ==========================================
+-- 1. ENVIRONMENT & RAW SCHEMA SETUP
+-- ==========================================
 USE WAREHOUSE COMPUTE_WH;
 USE DATABASE MEDICAL;
 
 CREATE SCHEMA IF NOT EXISTS RAW;
 USE SCHEMA RAW;
 
+-- Create Raw Tables
 CREATE OR REPLACE TABLE raw_doctors (
     doctor_id INT,
     doctor_name VARCHAR,
@@ -30,53 +33,54 @@ CREATE OR REPLACE TABLE raw_visits (
     billed_amount NUMBER(10, 2)
 );
 
+-- ==========================================
+-- 2. EXTERNAL STAGE & DATA INGESTION (GCS)
+-- ==========================================
+-- Configure Storage Integration for Google Cloud Storage
 CREATE OR REPLACE STORAGE INTEGRATION gcs_int
   TYPE = EXTERNAL_STAGE
   STORAGE_PROVIDER = 'GCS'
   ENABLED = TRUE
-  STORAGE_ALLOWED_LOCATIONS = ('gcs://snowflake_cicd')
+  STORAGE_ALLOWED_LOCATIONS = ('gcs://snowflake_cicd');
   -- STORAGE_BLOCKED_LOCATIONS = ('gcs://<your-bucket-name>/<sensitive-path>/') -- Optional
-  ;
 
 DESCRIBE STORAGE INTEGRATION gcs_int;
 
+-- Create External Stage
 CREATE OR REPLACE STAGE medical_stage
-URL='gcs://snowflake_cicd/'
-STORAGE_INTEGRATION = gcs_int;
+    URL='gcs://snowflake_cicd/'
+    STORAGE_INTEGRATION = gcs_int;
 
--- Example for loading the doctors table from an internal stage:
+-- Load Data from GCS into Raw Tables
 COPY INTO raw_doctors
-FROM @medical_stage/raw_doctors/raw_doctors.csv
-FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1);
+    FROM @medical_stage/raw_doctors/raw_doctors.csv
+    FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1);
 
 COPY INTO raw_patients
-FROM @medical_stage/raw_patients_initial/raw_patients_initial.csv
-FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1);
+    FROM @medical_stage/raw_patients_initial/raw_patients_initial.csv
+    FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1);
 
 COPY INTO raw_visits
-FROM @medical_stage/raw_visits_initial/raw_visits_initial.csv
-FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1);
+    FROM @medical_stage/raw_visits_initial/raw_visits_initial.csv
+    FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1);
 
-
+-- Verify Ingestion
 SELECT * FROM MEDICAL.raw.raw_doctors;
-
 SELECT * FROM MEDICAL.raw.raw_patients;
-
 SELECT * FROM MEDICAL.raw.raw_visits;
 
-
-
-
-
-
+-- ==========================================
+-- 3. CI/CD & DBT AUDIT TRACKING
+-- ==========================================
 USE WAREHOUSE COMPUTE_WH;
 USE DATABASE MEDICAL;
 
 CREATE SCHEMA IF NOT EXISTS AUDIT;
 USE SCHEMA AUDIT;
 
+-- Track GitHub Action Workflow Runs
 CREATE OR REPLACE TABLE MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION (
-    GH_RUN_ID            VARCHAR(50) PRIMARY KEY, -- The deterministic join key
+    GH_RUN_ID            VARCHAR(50) PRIMARY KEY, -- Deterministic join key
     DEPLOYMENT_TIMESTAMP TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
     BRANCH_NAME          VARCHAR(100),
     WORKFLOW_NAME        VARCHAR(100),
@@ -87,9 +91,10 @@ CREATE OR REPLACE TABLE MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION (
     ERROR_MESSAGE        VARCHAR(1000)
 );
 
+-- Track Individual dbt Model Executions
 CREATE OR REPLACE TABLE MEDICAL.AUDIT.DEPLOYMENT_HISTORY_DBT_MODEL (
     MODEL_EXECUTION_ID   INT IDENTITY(1,1) PRIMARY KEY,
-    GH_RUN_ID            VARCHAR(50),             -- The foreign key to join on
+    GH_RUN_ID            VARCHAR(50),             -- Foreign key to GitHub Action table
     DBT_MODEL_NAME       VARCHAR(255),
     QUERY_START_TIME     VARCHAR(50),
     QUERY_END_TIME       VARCHAR(50),
