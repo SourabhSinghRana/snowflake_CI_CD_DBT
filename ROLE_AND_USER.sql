@@ -23,6 +23,30 @@ CREATE OR REPLACE USER dbt_test_user
   --DEFAULT_NAMESPACE='MEDICAL.DEV'
   COMMENT='dbt_test_user user used for data transformation';
 
+CREATE OR REPLACE USER dbt_test_user
+  DEFAULT_ROLE = TRANSFORM
+  DEFAULT_WAREHOUSE = 'COMPUTE_WH'
+  MUST_CHANGE_PASSWORD = FALSE;
+
+
+
+/* I use Keypair auth so here is have to set it up:
+using OpenSSL on local machine. Run this commands in the terminal
+
+This command generates a private key and encrypts it using the AES 256 algorithm, which will prompt you to enter and verify a passphrase. REMEMBER FOR THIS PASSPHRASE
+openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out snowflake_dbt_key.p8 -v2 aes-256-cbc
+
+Generates public key:
+openssl rsa -in snowflake_dbt_key.p8 -pubout -out snowflake_dbt_key.pub
+
+So end of the day we have 2 files: 
+.p8 is the private key
+.pub is the publick key
+*/
+
+ALTER USER dbt_test_user
+    SET RSA_PUBLIC_KEY = 'putyourpublichere_withouttheBEGINandENDPUBLICKEY_and_inoneline';
+
 ALTER USER dbt_test_user SET TYPE = LEGACY_SERVICE;
 GRANT ROLE TRANSFORM TO USER dbt_test_user;
 
