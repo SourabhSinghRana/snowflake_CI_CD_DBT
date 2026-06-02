@@ -1,0 +1,66 @@
+name: Shared Email Alert
+
+on:
+  workflow_call:
+    # Inputs allow the calling workflow to pass dynamic data to the email
+    inputs:
+      job_status:
+        description: "The result of the previous job (success or failure)"
+        required: true
+        type: string
+      target_env:
+        description: "The environment being deployed to"
+        required: false
+        type: string
+        default: "N/A"
+    
+    # Explicitly require secrets so GitHub knows this workflow needs them
+    secrets:
+      MAIL_USERNAME:
+        required: true
+      MAIL_PASSWORD:
+        required: true
+
+jobs:
+  send-notification:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Dynamically set the emoji and text based on success/failure
+      - name: Determine Email Content
+        id: email_setup
+        run: |
+          if [ "${{ inputs.job_status }}" == "success" ]; then
+            echo "icon=✅" >> $GITHUB_OUTPUT
+            echo "status_text=SUCCESS" >> $GITHUB_OUTPUT
+          else
+            echo "icon=🚨" >> $GITHUB_OUTPUT
+            echo "status_text=FAILED" >> $GITHUB_OUTPUT
+          fi
+
+      # 2. Send the actual email
+      - name: Send Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          
+          # Use the dynamic variables from the previous step
+          subject: "${{ steps.email_setup.outputs.icon }} Pipeline ${{ steps.email_setup.outputs.status_text }}: ${{ github.repository }}"
+          to: sourabh9557151166@gmail.com
+          from: GitHub Actions Central
+          
+          body: |
+            The workflow execution has ${{ steps.email_setup.outputs.status_text }}.
+            
+            Repository: ${{ github.repository }}
+            Workflow: ${{ github.workflow }}
+            Environment: ${{ inputs.target_env }}
+            Triggered by: ${{ github.actor }}
+            Branch: ${{ github.ref_name }}
+            
+            View the exact execution logs here:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

@@ -92,3 +92,15 @@ jobs:
         run: |
           snow sql -x -q "INSERT INTO MEDICAL.AUDIT.DEPLOYMENT_HISTORY_GITHUB_ACTION (GH_RUN_ID, BRANCH_NAME, WORKFLOW_NAME, COMMIT_SHA, DEPLOYMENT_STATUS, TRIGGERED_BY, TRIGGER_EVENT) VALUES ('${{ github.run_id }}', '${{ github.ref_name }}', '${{ github.workflow }}', '${{ github.sha }}', '${{ job.status }}', '${{ github.actor }}', 'FULL_DEPLOY');"
 
+
+
+
+  notify-team:
+    needs: full-deploy-snowflake
+    if: always() 
+    uses: ./.github/workflows/shared-email-alert.yml
+    with:
+      job_status: ${{ needs.full-deploy-snowflake.result }} # Now points to the correct job result
+      target_env: 'prod' # Hardcoded to prod since there are no workflow inputs in this file
+    secrets: inherit
+
